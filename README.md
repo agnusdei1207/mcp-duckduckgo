@@ -62,7 +62,7 @@ Found 3 search results for "Rust 프로그래밍":
 ```json
 {
   "mcpServers": {
-    "websearch": {
+    "duckduckgo": {
       "command": "docker",
       "args": ["run", "--rm", "-i", "lepisoderegistry/mcp-websearch:latest"]
     }
@@ -78,7 +78,7 @@ Found 3 search results for "Rust 프로그래밍":
       "command": "npx",
       "args": ["-y", "@modelcontextprotocol/server-filesystem", "/allowed/path"]
     },
-    "websearch": {
+    "duckduckgo": {
       "command": "docker",
       "args": ["run", "--rm", "-i", "lepisoderegistry/mcp-websearch:latest"]
     }
