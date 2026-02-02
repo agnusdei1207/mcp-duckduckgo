@@ -1,16 +1,23 @@
 # MCP Web Search Server (Rust)
 
-High-performance Model Context Protocol (MCP) server providing web search functionality using DuckDuckGo HTML scraping.
+High-performance Model Context Protocol (MCP) server providing web search functionality using **DuckDuckGo** HTML scraping.
+
+## 🔍 DuckDuckGo 검색 엔진 사용
+
+이 서버는 **DuckDuckGo**를 사용하여 웹 검색을 수행합니다:
+- ✅ **완전 무료**: API 키 불필요
+- ✅ **개인 정보 보호**: DuckDuckGo는 사용자를 추적하지 않음
+- ✅ **무제한**: 검색 횟수 제한 없음 (Rate limiting: 30 req/min)
 
 ## Features
 
-- **Free & Unlimited**: No API keys required
-- **Privacy-Focused**: Uses DuckDuckGo, a privacy-focused search engine
-- **High Performance**: Rust implementation for speed and efficiency
-- **Large Result Sets**: Supports fetching up to 9,999 results
-- **Modular Architecture**: Clean separation of concerns
-- **Zero System Dependencies**: Uses rustls instead of OpenSSL
-- **Ultra-Small Docker**: ~10MB Alpine-based image with gcompat for runtime compatibility
+- **🔍 DuckDuckGo Search**: Privacy-focused search engine, no API keys required
+- **⚡ High Performance**: Rust implementation for speed and efficiency
+- **🔒 Rate Limiting**: 30 requests/minute to avoid blocking
+- **🌐 Multi-language**: Supports Korean, English, and other languages
+- **📦 Ultra-Small Docker**: ~10MB Alpine-based image with gcompat for runtime compatibility
+- **🎯 LLM-Friendly Output**: Natural language formatted results
+- **🛡️ Ad Filtering**: Automatically filters out sponsored results
 
 ---
 
@@ -77,10 +84,25 @@ If you have other MCP servers:
 
 ## Tool: web_search
 
+DuckDuckGo로 웹 검색을 수행합니다. 자연어 형식으로 결과를 반환합니다.
+
 **Parameters:**
-- `query` (required): Search query string
-- `limit` (optional): 1-9999 results (default: 10)
-- `offset` (optional): Pagination offset (default: 0)
+- `query` (required): 검색어
+- `limit` (optional): 결과 개수 (1-100, 기본값: 10)
+- `offset` (optional): 페이지 오프셋 (기본값: 0)
+
+**Example Output:**
+```
+Found 3 search results for "Rust programming":
+
+1. Rust Programming Language
+   URL: https://rust-lang.org/
+   Summary: Rust is a fast, reliable, and productive programming language...
+
+2. Rust (programming language) - Wikipedia
+   URL: https://en.wikipedia.org/wiki/Rust_(programming_language)
+   Summary: Rust is a general-purpose programming language...
+```
 
 ---
 
