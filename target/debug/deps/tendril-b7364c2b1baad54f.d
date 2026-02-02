@@ -1,0 +1,11 @@
+/home/lepisode/workspace/mcp-websearch/rust-mcp/target/debug/deps/tendril-b7364c2b1baad54f.d: /home/lepisode/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tendril-0.4.3/src/lib.rs /home/lepisode/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tendril-0.4.3/src/fmt.rs /home/lepisode/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tendril-0.4.3/src/stream.rs /home/lepisode/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tendril-0.4.3/src/buf32.rs /home/lepisode/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tendril-0.4.3/src/tendril.rs /home/lepisode/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tendril-0.4.3/src/utf8_decode.rs /home/lepisode/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tendril-0.4.3/src/util.rs
+
+/home/lepisode/workspace/mcp-websearch/rust-mcp/target/debug/deps/libtendril-b7364c2b1baad54f.rmeta: /home/lepisode/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tendril-0.4.3/src/lib.rs /home/lepisode/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tendril-0.4.3/src/fmt.rs /home/lepisode/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tendril-0.4.3/src/stream.rs /home/lepisode/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tendril-0.4.3/src/buf32.rs /home/lepisode/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tendril-0.4.3/src/tendril.rs /home/lepisode/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tendril-0.4.3/src/utf8_decode.rs /home/lepisode/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tendril-0.4.3/src/util.rs
+
+/home/lepisode/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tendril-0.4.3/src/lib.rs:
+/home/lepisode/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tendril-0.4.3/src/fmt.rs:
+/home/lepisode/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tendril-0.4.3/src/stream.rs:
+/home/lepisode/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tendril-0.4.3/src/buf32.rs:
+/home/lepisode/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tendril-0.4.3/src/tendril.rs:
+/home/lepisode/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tendril-0.4.3/src/utf8_decode.rs:
+/home/lepisode/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tendril-0.4.3/src/util.rs:

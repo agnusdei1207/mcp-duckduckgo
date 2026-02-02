@@ -1,0 +1,408 @@
+#!/usr/bin/env rust-script
+//! MCP Web Search Server - High-performance Rust implementation
+//! Uses DuckDuckGo HTML scraping for free, unlimited web search
+
+use anyhow::Result;
+use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
+use std::io::{self, BufRead, BufReader, Write};
+use std::time::Duration;
+use tokio::time::timeout;
+
+// ============== MCP Protocol Types ==============
+
+#[derive(Debug, Serialize, Deserialize)]
+struct JsonRpcRequest {
+    jsonrpc: String,
+    id: Option<serde_json::Value>,
+    method: String,
+    params: Option<Value>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct JsonRpcResponse {
+    jsonrpc: String,
+    id: Option<serde_json::Value>,
+    result: Option<Value>,
+    error: Option<JsonRpcError>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct JsonRpcError {
+    code: i32,
+    message: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct Tool {
+    name: String,
+    description: String,
+    input_schema: Value,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct ToolContent {
+    #[serde(rename = "type")]
+    content_type: String,
+    text: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct ToolResponse {
+    content: Vec<ToolContent>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    isError: Option<bool>,
+}
+
+// ============== Search Types ==============
+
+#[derive(Debug, Serialize)]
+struct SearchResult {
+    title: String,
+    url: String,
+    snippet: String,
+}
+
+#[derive(Debug, Serialize)]
+struct SearchResponse {
+    query: String,
+    results: Vec<SearchResult>,
+    totalResults: usize,
+    returned: usize,
+    offset: usize,
+}
+
+// ============== DuckDuckGo Scraper ==============
+
+struct DuckDuckGoScraper {
+    client: reqwest::Client,
+}
+
+impl DuckDuckGoScraper {
+    fn new() -> Self {
+        let client = reqwest::Client::builder()
+            .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+            .timeout(Duration::from_secs(30))
+            .build()
+            .unwrap();
+
+        Self { client }
+    }
+
+    async fn search(&self, query: &str, limit: usize, offset: usize) -> Result<SearchResponse> {
+        // DuckDuckGo HTML search URL
+        let url = format!(
+            "https://html.duckduckgo.com/html/?q={}&kl=kr-kr",
+            urlencoding::encode(query)
+        );
+
+        let resp = self.client.get(&url).send().await?;
+        let html = resp.text().await?;
+
+        // Parse HTML using scraper
+        let document = scraper::Html::parse_document(&html);
+        let result_selector = scraper::Selector::parse(".web-result").unwrap();
+        let title_selector = scraper::Selector::parse(".result__title").unwrap();
+        let url_selector = scraper::Selector::parse(".result__url").unwrap();
+        let snippet_selector = scraper::Selector::parse(".result__snippet").unwrap();
+
+        let mut results = Vec::new();
+
+        for element in document.select(&result_selector) {
+            if let Some(title_el) = element.select(&title_selector).next() {
+                let title = title_el.text().collect::<String>().trim().to_string();
+
+                let url = element
+                    .select(&url_selector)
+                    .next()
+                    .and_then(|el| el.value().attr("href"))
+                    .unwrap_or("")
+                    .to_string();
+
+                let snippet = element
+                    .select(&snippet_selector)
+                    .next()
+                    .map(|el| el.text().collect::<String>())
+                    .unwrap_or_default()
+                    .trim()
+                    .to_string();
+
+                if !title.is_empty() && !url.is_empty() {
+                    results.push(SearchResult { title, url, snippet });
+                }
+            }
+        }
+
+        // Apply pagination
+        let total = results.len();
+        let end_idx = (offset + limit).min(total);
+        let paginated: Vec<_> = results.into_iter().skip(offset).take(limit).collect();
+
+        Ok(SearchResponse {
+            query: query.to_string(),
+            results: paginated,
+            totalResults: total,
+            returned: end_idx.saturating_sub(offset),
+            offset,
+        })
+    }
+
+    // Advanced search with multiple pages for large result sets
+    async fn search_extended(
+        &self,
+        query: &str,
+        limit: usize,
+        offset: usize,
+    ) -> Result<SearchResponse> {
+        // For large requests, fetch multiple pages in parallel
+        let pages_needed = (limit + 29) / 30; // DuckDuckGo shows ~30 results per page
+        let mut all_results = Vec::new();
+
+        // First page
+        let url = format!(
+            "https://html.duckduckgo.com/html/?q={}&kl=kr-kr",
+            urlencoding::encode(query)
+        );
+
+        let html = self.fetch_page(&url).await?;
+        all_results.extend(self.parse_results(&html));
+
+        // Fetch additional pages if needed (limit to reasonable number)
+        if pages_needed > 1 && all_results.len() < limit + offset {
+            for page in 2..=(pages_needed.min(100)) { // Max 100 pages to avoid abuse
+                let page_url = format!("{}&s={}", url, (page - 1) * 30);
+
+                match timeout(Duration::from_secs(10), self.fetch_page(&page_url)).await {
+                    Ok(Ok(html)) => {
+                        all_results.extend(self.parse_results(&html));
+                    }
+                    _ => break,
+                }
+            }
+        }
+
+        let total = all_results.len();
+        let paginated: Vec<_> = all_results
+            .into_iter()
+            .skip(offset)
+            .take(limit)
+            .collect();
+
+        Ok(SearchResponse {
+            query: query.to_string(),
+            results: paginated,
+            totalResults: total,
+            returned: paginated.len(),
+            offset,
+        })
+    }
+
+    async fn fetch_page(&self, url: &str) -> Result<String> {
+        let resp = self.client.get(url).send().await?;
+        Ok(resp.text().await?)
+    }
+
+    fn parse_results(&self, html: &str) -> Vec<SearchResult> {
+        let document = scraper::Html::parse_document(html);
+        let result_selector = scraper::Selector::parse(".web-result").unwrap();
+        let title_selector = scraper::Selector::parse(".result__title").unwrap();
+        let url_selector = scraper::Selector::parse(".result__a").unwrap();
+        let snippet_selector = scraper::Selector::parse(".result__snippet").unwrap();
+
+        let mut results = Vec::new();
+
+        for element in document.select(&result_selector) {
+            let title = element
+                .select(&title_selector)
+                .next()
+                .map(|el| el.text().collect::<String>())
+                .unwrap_or_default()
+                .trim()
+                .to_string();
+
+            let url = element
+                .select(&url_selector)
+                .next()
+                .and_then(|el| el.value().attr("href"))
+                .unwrap_or("")
+                .to_string();
+
+            let snippet = element
+                .select(&snippet_selector)
+                .next()
+                .map(|el| el.text().collect::<String>())
+                .unwrap_or_default()
+                .trim()
+                .to_string();
+
+            if !title.is_empty() && !url.is_empty() && !url.contains("/l/?uddg=") {
+                results.push(SearchResult { title, url, snippet });
+            }
+        }
+
+        results
+    }
+}
+
+// ============== MCP Server ==============
+
+struct McpServer {
+    scraper: DuckDuckGoScraper,
+}
+
+impl McpServer {
+    fn new() -> Self {
+        Self {
+            scraper: DuckDuckGoScraper::new(),
+        }
+    }
+
+    fn get_tools(&self) -> Value {
+        json!({
+            "tools": [
+                {
+                    "name": "web_search",
+                    "description": "Search the web using DuckDuckGo. Returns relevant results with title, URL, and snippet. Supports fetching up to 9999 results.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "query": {
+                                "type": "string",
+                                "description": "The search query string"
+                            },
+                            "limit": {
+                                "type": "integer",
+                                "description": "Number of results to return (1-9999, default: 10)",
+                                "minimum": 1,
+                                "maximum": 9999,
+                                "default": 10
+                            },
+                            "offset": {
+                                "type": "integer",
+                                "description": "Pagination offset (default: 0)",
+                                "minimum": 0,
+                                "default": 0
+                            }
+                        },
+                        "required": ["query"]
+                    }
+                }
+            ]
+        })
+    }
+
+    async fn call_tool(&self, name: &str, params: &Value) -> Result<ToolResponse> {
+        match name {
+            "web_search" => {
+                let query = params["query"]
+                    .as_str()
+                    .ok_or_else(|| anyhow::anyhow!("Missing query"))?;
+
+                let limit = params["limit"].as_u64().unwrap_or(10) as usize;
+                let offset = params["offset"].as_u64().unwrap_or(0) as usize;
+
+                // Clamp values
+                let limit = limit.clamp(1, 9999);
+
+                let response = if limit > 50 {
+                    self.scraper.search_extended(query, limit, offset).await?
+                } else {
+                    self.scraper.search(query, limit, offset).await?
+                };
+
+                Ok(ToolResponse {
+                    content: vec![ToolContent {
+                        content_type: "text".to_string(),
+                        text: serde_json::to_string_pretty(&response)?,
+                    }],
+                    isError: None,
+                })
+            }
+            _ => Ok(ToolResponse {
+                content: vec![ToolContent {
+                    content_type: "text".to_string(),
+                    text: format!("Unknown tool: {}", name),
+                }],
+                isError: Some(true),
+            }),
+        }
+    }
+
+    async fn handle_request(&self, request: JsonRpcRequest) -> JsonRpcResponse {
+        let result = match request.method.as_str() {
+            "tools/list" => Ok(self.get_tools()),
+            "tools/call" => {
+                if let Some(params) = &request.params {
+                    let name = params["name"]
+                        .as_str()
+                        .unwrap_or("");
+                    let arguments = &params["arguments"];
+
+                    self.call_tool(name, arguments)
+                        .await
+                        .map(|r| json!(r))
+                } else {
+                    Err(anyhow::anyhow!("Missing params"))
+                }
+            }
+            "initialize" => Ok(json!({
+                "protocolVersion": "2024-11-05",
+                "capabilities": {
+                    "tools": {}
+                },
+                "serverInfo": {
+                    "name": "mcp-websearch",
+                    "version": "1.0.0"
+                }
+            })),
+            _ => Err(anyhow::anyhow!("Unknown method: {}", request.method)),
+        };
+
+        JsonRpcResponse {
+            jsonrpc: "2.0".to_string(),
+            id: request.id,
+            result: result.ok(),
+            error: result.err().map(|e| JsonRpcError {
+                code: -32600,
+                message: e.to_string(),
+            }),
+        }
+    }
+}
+
+// ============== Main ==============
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    let server = McpServer::new();
+    let stdin = io::stdin();
+    let stdout = io::stdout();
+    let mut stdout = stdout.lock();
+
+    // Use stderr for logging (stdout is for JSON-RPC)
+    eprintln!("MCP Web Search Server (Rust) starting on stdio...");
+
+    for line in BufReader::new(stdin).lines() {
+        let line = line?;
+
+        if line.trim().is_empty() {
+            continue;
+        }
+
+        let request: JsonRpcRequest = match serde_json::from_str(&line) {
+            Ok(req) => req,
+            Err(e) => {
+                eprintln!("JSON parse error: {}", e);
+                continue;
+            }
+        };
+
+        let response = server.handle_request(request).await;
+        let output = serde_json::to_string(&response)?;
+
+        writeln!(stdout, "{}", output)?;
+        stdout.flush()?;
+    }
+
+    Ok(())
+}
