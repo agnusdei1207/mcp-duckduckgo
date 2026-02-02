@@ -24,7 +24,7 @@ impl McpServer {
             "tools": [
                 {
                     "name": "web_search",
-                    "description": "Search the web using DuckDuckGo. Returns formatted results with title, URL, and summary in natural language. Rate limited to 30 requests/minute to avoid blocking.",
+                    "description": "Search the web using DuckDuckGo. Returns formatted results with title, URL, and summary in natural language. Rate limited to 20 requests/minute to avoid blocking.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -51,7 +51,7 @@ impl McpServer {
                 },
                 {
                     "name": "fetch_content",
-                    "description": "Fetch and parse the content of a webpage. Extracts the main text content from HTML, removing scripts, styles, and navigation elements. Useful for reading full articles or pages found via search. Rate limited to 30 requests/minute to avoid blocking.",
+                    "description": "Fetch and parse the content of a webpage. Extracts the main text content from HTML, removing scripts, styles, and navigation elements. Useful for reading full articles or pages found via search. Rate limited to 20 requests/minute to avoid blocking.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {

@@ -72,7 +72,7 @@ impl DuckDuckGoScraper {
 
         Self {
             client,
-            rate_limiter: RateLimiter::new(30), // 30 requests per minute
+            rate_limiter: RateLimiter::new(20), // 20 requests per minute
         }
     }
 
