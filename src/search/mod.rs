@@ -11,17 +11,47 @@ use tokio::sync::Mutex;
 pub struct RateLimiter {
     requests: Arc<Mutex<Vec<Instant>>>,
     max_requests_per_minute: usize,
+    min_delay: Duration,
+    last_request: Arc<Mutex<Option<Instant>>>,
 }
 
 impl RateLimiter {
-    pub fn new(max_requests_per_minute: usize) -> Self {
+    pub fn new(max_requests_per_minute: usize, min_delay_secs: u64) -> Self {
         Self {
             requests: Arc::new(Mutex::new(Vec::new())),
             max_requests_per_minute,
+            min_delay: Duration::from_secs(min_delay_secs),
+            last_request: Arc::new(Mutex::new(None)),
         }
     }
 
     pub async fn acquire(&self) {
+        let wait_time = {
+            let mut requests = self.requests.lock().await;
+            let mut last_request = self.last_request.lock().await;
+            let now = Instant::now();
+
+            // Check minimum delay since last request
+            if let Some(last) = *last_request {
+                let elapsed = now.duration_since(last);
+                if elapsed < self.min_delay {
+                    Some(self.min_delay.saturating_sub(elapsed))
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        };
+
+        // Sleep for minimum delay if needed
+        if let Some(wait) = wait_time {
+            if wait > Duration::ZERO {
+                tokio::time::sleep(wait).await;
+            }
+        }
+
+        // Now check per-minute limit
         let wait_time = {
             let mut requests = self.requests.lock().await;
             let now = Instant::now();
@@ -49,8 +79,10 @@ impl RateLimiter {
             }
         }
 
-        // Add the new request
+        // Update last request time and add the new request
         let mut requests = self.requests.lock().await;
+        let mut last_request = self.last_request.lock().await;
+        *last_request = Some(Instant::now());
         requests.push(Instant::now());
     }
 }
@@ -72,7 +104,7 @@ impl DuckDuckGoScraper {
 
         Self {
             client,
-            rate_limiter: RateLimiter::new(20), // 20 requests per minute
+            rate_limiter: RateLimiter::new(20, 3), // 20 req/min, 3 sec min delay
         }
     }
 
