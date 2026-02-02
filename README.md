@@ -21,16 +21,16 @@ High-performance Model Context Protocol (MCP) server providing web search functi
 
 ```bash
 # Pull the image
-docker pull agnusdei1207/mcp-websearch:latest
+docker pull lepisoderegistry/mcp-websearch:latest
 
 # Test: List available tools
-echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | docker run --rm -i agnusdei1207/mcp-websearch:latest 2>/dev/null
+echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | docker run --rm -i lepisoderegistry/mcp-websearch:latest 2>/dev/null
 
 # Test: Web search with JSON-RPC
-echo '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"web_search","arguments":{"query":"Rust programming","limit":3}}}' | docker run --rm -i agnusdei1207/mcp-websearch:latest 2>/dev/null
+echo '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"web_search","arguments":{"query":"Rust programming","limit":3}}}' | docker run --rm -i lepisoderegistry/mcp-websearch:latest 2>/dev/null
 
 # Test: Fetch webpage content
-echo '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"fetch_content","arguments":{"url":"https://www.rust-lang.org/"}}}' | docker run --rm -i agnusdei1207/mcp-websearch:latest 2>/dev/null
+echo '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"fetch_content","arguments":{"url":"https://www.rust-lang.org/"}}}' | docker run --rm -i lepisoderegistry/mcp-websearch:latest 2>/dev/null
 ```
 
 ### Expected Output
@@ -64,7 +64,7 @@ Found 3 search results for "Rust programming":
   "mcpServers": {
     "websearch": {
       "command": "docker",
-      "args": ["run", "--rm", "-i", "agnusdei1207/mcp-websearch:latest"]
+      "args": ["run", "--rm", "-i", "lepisoderegistry/mcp-websearch:latest"]
     }
   }
 }
@@ -80,7 +80,7 @@ If you have other MCP servers:
     },
     "websearch": {
       "command": "docker",
-      "args": ["run", "--rm", "-i", "agnusdei1207/mcp-websearch:latest"]
+      "args": ["run", "--rm", "-i", "lepisoderegistry/mcp-websearch:latest"]
     }
   }
 }
@@ -167,8 +167,8 @@ chmod +x ./mcp-websearch
 
 ```bash
 docker login
-docker tag mcp-websearch:latest agnusdei1207/mcp-websearch:latest
-docker push agnusdei1207/mcp-websearch:latest
+docker tag mcp-websearch:latest lepisoderegistry/mcp-websearch:latest
+docker push lepisoderegistry/mcp-websearch:latest
 ```
 
 ---
