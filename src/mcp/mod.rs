@@ -24,7 +24,7 @@ impl McpServer {
             "tools": [
                 {
                     "name": "web_search",
-                    "description": "Search the web using DuckDuckGo. Returns relevant results with title, URL, and snippet. Supports fetching up to 9999 results.",
+                    "description": "Search the web using DuckDuckGo. Returns formatted results with title, URL, and summary in natural language. Rate limited to 30 requests/minute to avoid blocking.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -34,9 +34,9 @@ impl McpServer {
                             },
                             "limit": {
                                 "type": "integer",
-                                "description": "Number of results to return (1-9999, default: 10)",
+                                "description": "Number of results to return (1-100, default: 10)",
                                 "minimum": 1,
-                                "maximum": 9999,
+                                "maximum": 100,
                                 "default": 10
                             },
                             "offset": {
@@ -87,10 +87,13 @@ impl McpServer {
 
                 let response = self.scraper.search(&search_params).await?;
 
+                // Format results in LLM-friendly natural language style
+                let formatted = self.scraper.format_results_for_llm(&response);
+
                 Ok(ToolResponse {
                     content: vec![ToolContent {
                         content_type: "text".to_string(),
-                        text: serde_json::to_string_pretty(&response)?,
+                        text: formatted,
                     }],
                     is_error: None,
                 })
