@@ -10,41 +10,89 @@ High-performance Model Context Protocol (MCP) server providing web search functi
 - **Large Result Sets**: Supports fetching up to 9,999 results
 - **Modular Architecture**: Clean separation of concerns
 - **Zero System Dependencies**: Uses rustls instead of OpenSSL
+- **Ultra-Small Docker**: ~10MB Alpine-based image
 
-## Project Structure
+---
 
-```
-rust-mcp/
-├── Cargo.toml              # Project manifest (edition = "2024")
-├── Dockerfile              # Docker 1.92 image build
-├── mcp-websearch           # Pre-built binary (from Docker)
-├── src/
-│   ├── main.rs             # Entry point
-│   ├── lib.rs              # Library exports
-│   ├── models/             # Data models
-│   │   ├── mod.rs
-│   │   └── tests.rs        # Model unit tests
-│   ├── search/             # Search implementation
-│   │   ├── mod.rs
-│   │   └── tests.rs        # Search unit tests
-│   └── mcp/                # MCP protocol
-│       ├── mod.rs
-│       └── tests.rs        # MCP unit tests
-└── tests/                  # E2E tests
-    └── e2e_tests.rs
-```
+## Quick Start (Docker Hub)
 
-## Building
-
-### Docker Build (REQUIRED)
-
-All builds must be done via Docker using Rust 1.92:
+### Pull & Test
 
 ```bash
-# Build Docker image
-docker build -t mcp-websearch:latest .
+# Pull the image
+docker pull agnusdei1207/mcp-websearch:latest
 
-# Extract the binary for local use
+# Quick test
+echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | docker run --rm -i agnusdei1207/mcp-websearch:latest
+
+# Web search test
+echo '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"web_search","arguments":{"query":"Rust programming","limit":3}}}' | docker run --rm -i agnusdei1207/mcp-websearch:latest
+```
+
+---
+
+## Claude Code Integration
+
+### Config File Location
+
+- **Linux**: `~/.config/claude-code/config.json`
+- **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+
+### Add MCP Server
+
+```json
+{
+  "mcpServers": {
+    "websearch": {
+      "command": "docker",
+      "args": ["run", "--rm", "-i", "agnusdei1207/mcp-websearch:latest"]
+    }
+  }
+}
+```
+
+If you have other MCP servers:
+```json
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/allowed/path"]
+    },
+    "websearch": {
+      "command": "docker",
+      "args": ["run", "--rm", "-i", "agnusdei1207/mcp-websearch:latest"]
+    }
+  }
+}
+```
+
+### Restart & Verify
+
+1. Close and reopen Claude Code
+2. Try: `Search for "Claude AI" with limit 5`
+
+---
+
+## Tool: web_search
+
+**Parameters:**
+- `query` (required): Search query string
+- `limit` (optional): 1-9999 results (default: 10)
+- `offset` (optional): Pagination offset (default: 0)
+
+---
+
+## Building from Source
+
+```bash
+docker build -t mcp-websearch:latest .
+```
+
+### Extract Binary
+
+```bash
 docker create --name temp mcp-websearch:latest
 docker cp temp:/app/mcp-websearch ./mcp-websearch
 docker rm temp
@@ -54,183 +102,70 @@ chmod +x ./mcp-websearch
 ### Push to Docker Hub
 
 ```bash
-# Login to Docker Hub (first time only)
 docker login
-
-# Tag your image
-docker tag mcp-websearch:latest <your-dockerhub-username>/mcp-websearch:latest
-
-# Push to Docker Hub
-docker push <your-dockerhub-username>/mcp-websearch:latest
+docker tag mcp-websearch:latest agnusdei1207/mcp-websearch:latest
+docker push agnusdei1207/mcp-websearch:latest
 ```
 
-Example:
-```bash
-docker tag mcp-websearch:latest myusername/mcp-websearch:latest
-docker push myusername/mcp-websearch:latest
-```
+---
 
-### Pull from Docker Hub
-
-```bash
-# Pull the image
-docker pull <your-dockerhub-username>/mcp-websearch:latest
-
-# Run the MCP server
-docker run --rm -i <your-dockerhub-username>/mcp-websearch:latest
-```
-
-## Running Locally
-
-### Option 1: Using the Extracted Binary
-
-```bash
-./mcp-websearch
-```
-
-The server will start and listen for JSON-RPC requests on stdin/stdout.
-
-### Option 2: Using Docker (Auto-start)
-
-```bash
-# Interactive mode (for testing)
-docker run --rm -i mcp-websearch:latest
-
-# The MCP server starts automatically via ENTRYPOINT
-```
-
-## Usage with Claude Code
-
-### Step 1: Locate Claude Code Config
-
-Claude Code configuration file location:
-- **Linux**: `~/.config/claude-code/config.json`
-- **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
-- **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
-
-### Step 2: Add MCP Server Configuration
-
-Using the **extracted binary**:
-```json
-{
-  "mcpServers": {
-    "websearch": {
-      "command": "/home/lepisode/workspace/mcp-websearch/rust-mcp/mcp-websearch"
-    }
-  }
-}
-```
-
-Using **Docker** (recommended):
-```json
-{
-  "mcpServers": {
-    "websearch": {
-      "command": "docker",
-      "args": ["run", "--rm", "-i", "mcp-websearch:latest"]
-    }
-  }
-}
-```
-
-Using **Docker Hub image**:
-```json
-{
-  "mcpServers": {
-    "websearch": {
-      "command": "docker",
-      "args": ["run", "--rm", "-i", "your-username/mcp-websearch:latest"]
-    }
-  }
-}
-```
-
-### Step 3: Restart Claude Code
-
-After updating the configuration, restart Claude Code to load the MCP server.
-
-### Step 4: Verify Installation
-
-In Claude Code, you can now use the `web_search` tool:
+## Project Structure
 
 ```
-Search for "latest Rust programming news" and return 5 results.
+mcp-websearch/
+├── Cargo.toml              # Project manifest (edition = "2024")
+├── Dockerfile              # Alpine-based multi-stage build
+├── README.md               # This file
+├── src/
+│   ├── main.rs             # Entry point
+│   ├── lib.rs              # Library exports
+│   ├── models/             # Data models + tests
+│   ├── search/             # DuckDuckGo scraper + tests
+│   └── mcp/                # MCP protocol + tests
+└── tests/                  # E2E tests
+    └── e2e_tests.rs
 ```
 
-## Tool: web_search
-
-Searches the web using DuckDuckGo.
-
-### Parameters
-
-- `query` (required): Search query string
-- `limit` (optional): Number of results (1-9999, default: 10)
-- `offset` (optional): Pagination offset (default: 0)
-
-### Response
-
-```json
-{
-  "query": "search query",
-  "results": [
-    {
-      "title": "Result title",
-      "url": "https://example.com",
-      "snippet": "Brief description"
-    }
-  ],
-  "totalResults": 100,
-  "returned": 10,
-  "offset": 0
-}
-```
+---
 
 ## Testing
 
 ```bash
-# Run all tests
-docker run --rm -w /app mcp-websearch:latest cargo test
+# MCP tools list
+echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | docker run --rm -i agnusdei1207/mcp-websearch:latest
 
-# Run unit tests only
-docker run --rm -w /app mcp-websearch:latest cargo test --lib
+# Web search
+echo '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"web_search","arguments":{"query":"Rust","limit":3}}}' | docker run --rm -i agnusdei1207/mcp-websearch:latest
 
-# Run E2E tests
-docker run --rm -w /app mcp-websearch:latest cargo test --test e2e_tests
+# Unit tests (requires cargo in builder)
+docker run --rm -w /app agnusdei1207/mcp-websearch:latest cargo test --lib
 ```
 
-## Manual Testing (stdin/stdout)
-
-You can test the MCP server manually by sending JSON-RPC requests:
-
-```bash
-# Start the server
-./mcp-websearch
-
-# In another terminal, send a request
-echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | ./mcp-websearch
-
-# Or test web search
-echo '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"web_search","arguments":{"query":"Rust","limit":3}}}' | ./mcp-websearch
-```
+---
 
 ## Performance
 
-- **Binary Size**: ~3MB (stripped, rustls)
-- **Memory Usage**: ~2-5MB
-- **Startup Time**: <10ms
-- **Search Speed**: ~500ms per page
-- **Docker Image**: ~70MB (debian base)
+| Metric | Value |
+|--------|-------|
+| Docker Image | ~10MB (Alpine) |
+| Binary Size | ~3MB |
+| Memory Usage | ~2-5MB |
+| Startup Time | <10ms |
+| Search Speed | ~500ms/page |
+
+---
 
 ## Technical Details
 
 - **Rust Edition**: 2024
-- **Docker Base**: rust:1.92-slim
-- **TLS**: rustls (no OpenSSL dependency)
-- **Async Runtime**: tokio
-- **HTML Parsing**: scraper
-- **HTTP Client**: reqwest with rustls-tls
+- **Build**: rust:1.92-alpine
+- **Runtime**: alpine:latest (musl)
+- **TLS**: rustls (static linking)
+- **HTTP**: reqwest with rustls-tls
+- **Search**: DuckDuckGo HTML scraping
+
+---
 
 ## License
 
 MIT
-# mcp-websearch

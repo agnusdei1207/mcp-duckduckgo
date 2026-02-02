@@ -1,9 +1,13 @@
 # Dockerfile for MCP Web Search Server
 # Uses Rust 1.92 for building
 # Uses rustls-tls instead of OpenSSL for zero system dependencies
+# Uses Alpine for minimal runtime image
 
-# Build stage
-FROM rust:1.92-slim AS builder
+# Build stage - use Alpine to build musl binary
+FROM rust:1.92-alpine AS builder
+
+# Install build dependencies
+RUN apk add --no-cache musl-dev
 
 WORKDIR /build
 
@@ -20,19 +24,16 @@ RUN mkdir src && \
 # Copy actual source code
 COPY src ./src
 
-# Build the project
-RUN touch src/main.rs && cargo build --release
+# Build the project with static linking
+RUN touch src/main.rs && RUSTFLAGS="-C target-feature=-crt-static" cargo build --release
 
-# Runtime stage - minimal scratch-like image
-FROM debian:bookworm-slim
+# Runtime stage - Alpine (minimal)
+FROM alpine:latest
 
 WORKDIR /app
 
-# Install minimal runtime dependencies (only ca-certificates for HTTPS)
-RUN apt-get update && apt-get install -y \
-    ca-certificates \
-    && rm -rf /var/lib/apt/lists/* \
-    && update-ca-certificates
+# Install ca-certificates for HTTPS
+RUN apk add --no-cache ca-certificates
 
 # Copy the binary from builder
 COPY --from=builder /build/target/release/mcp-websearch /app/mcp-websearch
@@ -41,7 +42,9 @@ COPY --from=builder /build/target/release/mcp-websearch /app/mcp-websearch
 RUN chmod +x /app/mcp-websearch
 
 # Use non-root user
-RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+RUN addgroup -g 1000 appuser && \
+    adduser -D -u 1000 -G appuser appuser && \
+    chown -R appuser:appuser /app
 USER appuser
 
 # Set the entrypoint
