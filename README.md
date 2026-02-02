@@ -2,13 +2,6 @@
 
 High-performance Model Context Protocol (MCP) server providing web search functionality using **DuckDuckGo** HTML scraping.
 
-## 🔍 DuckDuckGo 검색 엔진 사용
-
-이 서버는 **DuckDuckGo**를 사용하여 웹 검색을 수행합니다:
-- ✅ **완전 무료**: API 키 불필요
-- ✅ **개인 정보 보호**: DuckDuckGo는 사용자를 추적하지 않음
-- ✅ **무제한**: 검색 횟수 제한 없음 (Rate limiting: 30 req/min)
-
 ## Features
 
 - **🔍 DuckDuckGo Search**: Privacy-focused search engine, no API keys required
@@ -18,6 +11,7 @@ High-performance Model Context Protocol (MCP) server providing web search functi
 - **📦 Ultra-Small Docker**: ~10MB Alpine-based image with gcompat for runtime compatibility
 - **🎯 LLM-Friendly Output**: Natural language formatted results
 - **🛡️ Ad Filtering**: Automatically filters out sponsored results
+- **🚀 Zero Dependencies**: Uses POST requests (more reliable than GET)
 
 ---
 
@@ -29,11 +23,25 @@ High-performance Model Context Protocol (MCP) server providing web search functi
 # Pull the image
 docker pull agnusdei1207/mcp-websearch:latest
 
-# Quick test
+# Test: List available tools
 echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | docker run --rm -i agnusdei1207/mcp-websearch:latest
 
-# Web search test
+# Test: Web search with JSON-RPC
 echo '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"web_search","arguments":{"query":"Rust programming","limit":3}}}' | docker run --rm -i agnusdei1207/mcp-websearch:latest
+```
+
+### Expected Output
+
+```
+Found 3 search results for "Rust programming":
+
+1. Rust Programming Language
+   URL: https://rust-lang.org/
+   Summary: Rust is a fast, reliable, and productive programming language...
+
+2. Rust (programming language) - Wikipedia
+   URL: https://en.wikipedia.org/wiki/Rust_(programming_language)
+   Summary: Rust is a general-purpose programming language...
 ```
 
 ---
@@ -84,25 +92,49 @@ If you have other MCP servers:
 
 ## Tool: web_search
 
-DuckDuckGo로 웹 검색을 수행합니다. 자연어 형식으로 결과를 반환합니다.
+DuckDuckGo web search with natural language output.
 
 **Parameters:**
-- `query` (required): 검색어
-- `limit` (optional): 결과 개수 (1-100, 기본값: 10)
-- `offset` (optional): 페이지 오프셋 (기본값: 0)
+- `query` (required): Search query string
+- `limit` (optional): Number of results (1-100, default: 10)
+- `offset` (optional): Pagination offset (default: 0)
 
-**Example Output:**
-```
-Found 3 search results for "Rust programming":
+---
 
-1. Rust Programming Language
-   URL: https://rust-lang.org/
-   Summary: Rust is a fast, reliable, and productive programming language...
+## Technical Details
 
-2. Rust (programming language) - Wikipedia
-   URL: https://en.wikipedia.org/wiki/Rust_(programming_language)
-   Summary: Rust is a general-purpose programming language...
-```
+- **Search Engine**: DuckDuckGo HTML scraping
+- **HTTP Method**: POST with form data (more reliable than GET)
+- **Rate Limiting**: 30 requests/minute to avoid IP blocking
+- **Ad Filtering**: Removes sponsored results (`y.js` links)
+- **URL Extraction**: Decodes DuckDuckGo redirect URLs to real URLs
+- **CAPTCHA Detection**: Gracefully handles bot detection
+
+### Technologies
+
+- **Rust Edition**: 2024
+- **Build**: rust:1.92-alpine
+- **Runtime**: alpine:latest (musl + gcompat for glibc compatibility)
+- **TLS**: rustls (static linking)
+- **HTTP**: reqwest with rustls-tls
+- **HTML Parsing**: scraper crate
+
+---
+
+## Comparison with Other Projects
+
+| Feature | This Project (Rust) | Python version (nickclyde/duckduckgo-mcp-server) |
+|---------|---------------------|--------------------------------------------------|
+| **Language** | Rust | Python |
+| **Size** | ~10MB Docker | ~100MB+ (Python runtime) |
+| **Startup** | <10ms | ~100ms+ |
+| **Memory** | 2-5MB | 50-100MB+ |
+| **HTTP Method** | POST | POST |
+| **Rate Limiting** | ✅ 30 req/min | ✅ 30 req/min |
+| **Ad Filtering** | ✅ | ✅ |
+| **fetch_content** | ❌ | ✅ (webpage content fetcher) |
+
+**Note**: The Python version includes a `fetch_content` tool that fetches and parses webpage content. This Rust implementation focuses on search only for minimal resource usage.
 
 ---
 
@@ -143,24 +175,10 @@ mcp-websearch/
 │   ├── lib.rs              # Library exports
 │   ├── models/             # Data models + tests
 │   ├── search/             # DuckDuckGo scraper + tests
+│   │   └── mod.rs          # Rate limiter, POST requests, HTML parsing
 │   └── mcp/                # MCP protocol + tests
 └── tests/                  # E2E tests
     └── e2e_tests.rs
-```
-
----
-
-## Testing
-
-```bash
-# MCP tools list
-echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | docker run --rm -i agnusdei1207/mcp-websearch:latest
-
-# Web search
-echo '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"web_search","arguments":{"query":"Rust","limit":3}}}' | docker run --rm -i agnusdei1207/mcp-websearch:latest
-
-# Unit tests (requires cargo in builder)
-docker run --rm -w /app agnusdei1207/mcp-websearch:latest cargo test --lib
 ```
 
 ---
@@ -174,17 +192,6 @@ docker run --rm -w /app agnusdei1207/mcp-websearch:latest cargo test --lib
 | Memory Usage | ~2-5MB |
 | Startup Time | <10ms |
 | Search Speed | ~500ms/page |
-
----
-
-## Technical Details
-
-- **Rust Edition**: 2024
-- **Build**: rust:1.92-alpine
-- **Runtime**: alpine:latest (musl + gcompat for glibc compatibility)
-- **TLS**: rustls (static linking)
-- **HTTP**: reqwest with rustls-tls
-- **Search**: DuckDuckGo HTML scraping
 
 ---
 
