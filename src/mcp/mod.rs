@@ -48,6 +48,20 @@ impl McpServer {
                         },
                         "required": ["query"]
                     }
+                },
+                {
+                    "name": "fetch_content",
+                    "description": "Fetch and parse the content of a webpage. Extracts the main text content from HTML, removing scripts, styles, and navigation elements. Useful for reading full articles or pages found via search. Rate limited to 30 requests/minute to avoid blocking.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "url": {
+                                "type": "string",
+                                "description": "The URL of the webpage to fetch and parse"
+                            }
+                        },
+                        "required": ["url"]
+                    }
                 }
             ]
         })
@@ -74,6 +88,21 @@ impl McpServer {
         params: &serde_json::Value,
     ) -> Result<ToolResponse, anyhow::Error> {
         match name {
+            "fetch_content" => {
+                let url = params["url"]
+                    .as_str()
+                    .ok_or_else(|| anyhow::anyhow!("Missing 'url' parameter"))?;
+
+                let content = self.scraper.fetch_content(url).await?;
+
+                Ok(ToolResponse {
+                    content: vec![ToolContent {
+                        content_type: "text".to_string(),
+                        text: content,
+                    }],
+                    is_error: None,
+                })
+            }
             "web_search" => {
                 let query = params["query"]
                     .as_str()

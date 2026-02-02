@@ -232,6 +232,144 @@ impl DuckDuckGoScraper {
 
         output
     }
+
+    /// Fetch and parse webpage content
+    pub async fn fetch_content(&self, url: &str) -> Result<String> {
+        // Apply rate limiting
+        self.rate_limiter.acquire().await;
+
+        let resp = self.client
+            .get(url)
+            .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+            .header("Accept-Language", "en-US,en;q=0.9")
+            .header("DNT", "1")
+            .send()
+            .await?;
+
+        let status = resp.status();
+        let html = resp.text().await?;
+
+        if !status.is_success() {
+            return Ok(format!("HTTP Error: {} - Failed to fetch content from: {}", status.as_u16(), url));
+        }
+
+        // Parse and extract readable content
+        let document = Html::parse_document(&html);
+
+        // Remove script and style elements
+        let script_selector = Selector::parse("script, style, nav, footer, header, aside").unwrap();
+
+        // Get main content areas
+        let content_selectors = vec![
+            "article", "main", "[role=\"main\"]", ".content", ".post-content",
+            ".article-content", ".entry-content", "#content", ".main-content"
+        ];
+
+        let mut main_content = String::new();
+
+        // Try to find content in main containers first
+        for selector_str in &content_selectors {
+            if let Ok(selector) = Selector::parse(selector_str) {
+                if let Some(element) = document.select(&selector).next() {
+                    let html = element.html();
+                    let doc = Html::parse_document(&html);
+                    let text = extract_text_content(&doc);
+                    if text.len() > 200 {
+                        main_content = text;
+                        break;
+                    }
+                }
+            }
+        }
+
+        // If no main content found, fall back to body
+        if main_content.is_empty() {
+            main_content = extract_text_content(&document);
+        }
+
+        // Clean up the content
+        let content = clean_content(&main_content);
+
+        Ok(content)
+    }
+}
+
+/// Extract text content from HTML document
+fn extract_text_content(document: &Html) -> String {
+    let script_selector = Selector::parse("script, style, nav, footer, header, aside, svg, noscript").unwrap();
+    let mut html = document.html().to_string();
+
+    // Simple approach: remove unwanted elements and extract text
+    let mut text_parts = Vec::new();
+
+    // Get body or use whole document
+    let body_selector = Selector::parse("body").unwrap();
+    let root = document.select(&body_selector).next().unwrap_or_else(|| {
+        // If no body, try to get the whole document's root element
+        let all_selector = Selector::parse("*").unwrap();
+        document.select(&all_selector).next().unwrap_or_else(|| {
+            // Fallback: create a selector for html
+            let html_selector = Selector::parse("html").unwrap();
+            document.select(&html_selector).next().expect("No html element found")
+        })
+    });
+
+    // Extract text from all text nodes
+    for node in root.descendants() {
+        if let Some(text) = node.value().as_text() {
+            let text = text.trim();
+            if !text.is_empty() && text.len() > 1 {
+                text_parts.push(text.to_string());
+            }
+        }
+    }
+
+    text_parts.join(" ")
+}
+
+/// Clean up content by removing excessive whitespace
+fn clean_content(content: &str) -> String {
+    let mut result = String::new();
+    let mut prev_space = false;
+    let mut line_count = 0;
+
+    for line in content.lines() {
+        let line = line.trim();
+        if line.is_empty() {
+            if !prev_space && line_count > 0 {
+                result.push_str("\n\n");
+                prev_space = true;
+            }
+            continue;
+        }
+
+        // Skip very short lines (likely navigation)
+        if line.len() < 3 && line_count > 0 {
+            continue;
+        }
+
+        if prev_space {
+            result.push_str(line);
+            result.push(' ');
+        } else {
+            result.push_str(line);
+            result.push(' ');
+        }
+        prev_space = false;
+        line_count += 1;
+
+        // Limit content size
+        if result.len() > 10000 {
+            result.push_str("\n\n[Content truncated due to size...]");
+            break;
+        }
+    }
+
+    // Clean up multiple spaces
+    let cleaned = result.split_whitespace().collect::<Vec<_>>().join(" ");
+
+    // Format as lines
+    format!("Webpage Content:\n\n{}", cleaned)
 }
 
 impl Default for DuckDuckGoScraper {

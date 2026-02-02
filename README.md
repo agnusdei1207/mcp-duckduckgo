@@ -24,10 +24,13 @@ High-performance Model Context Protocol (MCP) server providing web search functi
 docker pull agnusdei1207/mcp-websearch:latest
 
 # Test: List available tools
-echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | docker run --rm -i agnusdei1207/mcp-websearch:latest
+echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | docker run --rm -i agnusdei1207/mcp-websearch:latest 2>/dev/null
 
 # Test: Web search with JSON-RPC
-echo '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"web_search","arguments":{"query":"Rust programming","limit":3}}}' | docker run --rm -i agnusdei1207/mcp-websearch:latest
+echo '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"web_search","arguments":{"query":"Rust programming","limit":3}}}' | docker run --rm -i agnusdei1207/mcp-websearch:latest 2>/dev/null
+
+# Test: Fetch webpage content
+echo '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"fetch_content","arguments":{"url":"https://www.rust-lang.org/"}}}' | docker run --rm -i agnusdei1207/mcp-websearch:latest 2>/dev/null
 ```
 
 ### Expected Output
@@ -101,6 +104,15 @@ DuckDuckGo web search with natural language output.
 
 ---
 
+## Tool: fetch_content
+
+Fetch and parse webpage content, extracting main text while removing scripts, styles, and navigation.
+
+**Parameters:**
+- `url` (required): The URL of the webpage to fetch and parse
+
+---
+
 ## Technical Details
 
 - **Search Engine**: DuckDuckGo HTML scraping
@@ -132,9 +144,7 @@ DuckDuckGo web search with natural language output.
 | **HTTP Method** | POST | POST |
 | **Rate Limiting** | ✅ 30 req/min | ✅ 30 req/min |
 | **Ad Filtering** | ✅ | ✅ |
-| **fetch_content** | ❌ | ✅ (webpage content fetcher) |
-
-**Note**: The Python version includes a `fetch_content` tool that fetches and parses webpage content. This Rust implementation focuses on search only for minimal resource usage.
+| **fetch_content** | ✅ | ✅ (webpage content fetcher) |
 
 ---
 
