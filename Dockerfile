@@ -24,16 +24,16 @@ RUN mkdir src && \
 # Copy actual source code
 COPY src ./src
 
-# Build the project with static linking
-RUN touch src/main.rs && RUSTFLAGS="-C target-feature=-crt-static" cargo build --release
+# Build the project with static linking for musl
+RUN touch src/main.rs && cargo build --release
 
 # Runtime stage - Alpine (minimal)
 FROM alpine:latest
 
 WORKDIR /app
 
-# Install ca-certificates for HTTPS
-RUN apk add --no-cache ca-certificates
+# Install ca-certificates for HTTPS and glibc for runtime compatibility
+RUN apk add --no-cache ca-certificates gcompat
 
 # Copy the binary from builder
 COPY --from=builder /build/target/release/mcp-websearch /app/mcp-websearch

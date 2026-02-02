@@ -10,7 +10,7 @@ High-performance Model Context Protocol (MCP) server providing web search functi
 - **Large Result Sets**: Supports fetching up to 9,999 results
 - **Modular Architecture**: Clean separation of concerns
 - **Zero System Dependencies**: Uses rustls instead of OpenSSL
-- **Ultra-Small Docker**: ~10MB Alpine-based image
+- **Ultra-Small Docker**: ~10MB Alpine-based image with gcompat for runtime compatibility
 
 ---
 
@@ -159,7 +159,7 @@ docker run --rm -w /app agnusdei1207/mcp-websearch:latest cargo test --lib
 
 - **Rust Edition**: 2024
 - **Build**: rust:1.92-alpine
-- **Runtime**: alpine:latest (musl)
+- **Runtime**: alpine:latest (musl + gcompat for glibc compatibility)
 - **TLS**: rustls (static linking)
 - **HTTP**: reqwest with rustls-tls
 - **Search**: DuckDuckGo HTML scraping
