@@ -121,6 +121,7 @@ Found 3 search results for "Rust 프로그래밍":
 - **광고 필터링**: 스폰서 결과 제거 (`y.js` 링크)
 - **URL 추출**: DuckDuckGo 리다이렉트 URL을 실제 URL로 디코딩
 - **CAPTCHA 감지**: 봇 감지를 우아하게 처리
+- **JSON-RPC 2.0**: 스펙 엄격 준수 (`error` 필드가 없을 때는 생략)
 
 ### 사용 기술
 
